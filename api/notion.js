@@ -61,13 +61,26 @@ module.exports = async function handler(req, res) {
 
   const title = `Compte rendu – ${formatDate(date)}${client ? ' – ' + client : ''}`;
 
+  // Mapper la difficulté (app → Notion options)
+  const diffMap = { 'Facile': 'Facile', 'Moyen': 'Moyen', 'Complexe': 'Complexe', '⚡ Urgent': 'Urgent', 'Urgent': 'Urgent' };
+  const difficulte = diffMap[tasks[0]?.difficulty] || 'Moyen';
+
+  // Résumé court pour la colonne (sans les liens)
+  const resumeText = tasks.map(t => `• ${t.task}${t.result ? ' → ' + t.result : ''}`).join('\n');
+
   const notionRes = await fetch('https://api.notion.com/v1/pages', {
     method: 'POST',
     headers: notionHeaders,
     body: JSON.stringify({
       parent: { database_id: process.env.NOTION_DATABASE_ID },
       properties: {
-        [titleKey]: { title: [{ type: 'text', text: { content: title } }] },
+        [titleKey]:       { title:     [{ type: 'text', text: { content: title } }] },
+        "Date d'échéance": { date:     { start: date || new Date().toISOString().split('T')[0] } },
+        "Client":         { rich_text: [{ type: 'text', text: { content: client } }] },
+        "Résumé":         { rich_text: [{ type: 'text', text: { content: resumeText } }] },
+        "Temps total":    { rich_text: [{ type: 'text', text: { content: totalTime || '' } }] },
+        "Difficulté":     { select:    { name: difficulte } },
+        "État":           { status:    { name: 'Terminé' } },
       },
       children: blocks,
     }),
