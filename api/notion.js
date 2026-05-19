@@ -52,38 +52,6 @@ module.exports = async function handler(req, res) {
   const queryData = await queryRes.json();
   const existingPage = queryData.results?.[0];
 
-  // ── Uploader les fichiers vers Notion ────────────────────────────────────
-  async function uploadFileToNotion(file) {
-    try {
-      // 1. Créer l'upload
-      const createRes = await fetch('https://api.notion.com/v1/file_uploads', {
-        method: 'POST',
-        headers: notionHeaders,
-        body: JSON.stringify({ filename: file.name, content_type: file.type || 'application/octet-stream' }),
-      });
-      const upload = await createRes.json();
-      if (!createRes.ok) return null;
-
-      // 2. Envoyer le contenu binaire (base64 → Buffer → FormData)
-      const base64Data = file.dataUrl.split(',')[1];
-      const binary = Buffer.from(base64Data, 'base64');
-
-      // Node.js 20 : FormData et Blob sont globals
-      const form = new FormData();
-      form.append('file', new Blob([binary], { type: file.type || 'application/octet-stream' }), file.name);
-
-      const sendRes = await fetch(`https://api.notion.com/v1/file_uploads/${upload.id}/send`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${process.env.NOTION_TOKEN}`, 'Notion-Version': '2022-06-28' },
-        body: form,
-      });
-      const sent = await sendRes.json();
-      if (!sendRes.ok) { console.error('file send error:', sent); return null; }
-
-      return { id: upload.id, name: file.name, type: file.type };
-    } catch (e) { console.error('upload exception:', e.message); return null; }
-  }
-
   // ── Blocs nouveaux à ajouter ─────────────────────────────────────────────
   const newBlocks = [];
 
@@ -94,18 +62,19 @@ module.exports = async function handler(req, res) {
     if (t.notes) newBlocks.push(quote(t.notes));
     for (const l of t.links || []) { if (l.url) newBlocks.push(linkBlock(l.label || l.url, l.url)); }
 
-    // Upload fichiers → blocs Notion
-    for (const f of t.files || []) {
-      if (!f.dataUrl) { newBlocks.push(paragraph(`📎 ${f.name}`)); continue; }
-      const uploaded = await uploadFileToNotion(f);
-      if (uploaded) {
-        if (f.type?.startsWith('image/')) {
-          newBlocks.push({ object: 'block', type: 'image', image: { type: 'file_upload', file_upload: { id: uploaded.id } } });
-        } else {
-          newBlocks.push({ object: 'block', type: 'file', file: { type: 'file_upload', file_upload: { id: uploaded.id }, caption: [{ type: 'text', text: { content: f.name } }] } });
-        }
-      } else {
-        newBlocks.push(paragraph(`📎 ${f.name} (upload échoué)`));
+    // Fichiers → callout avec icône selon type
+    if (t.files?.length) {
+      for (const f of t.files) {
+        const icon = f.type?.startsWith('image/') ? '🖼️' : f.type?.includes('pdf') ? '📄' : f.type?.includes('sheet') || f.type?.includes('excel') ? '📊' : '📎';
+        const sizeKb = f.size ? ` · ${Math.round(f.size / 1024)}ko` : '';
+        newBlocks.push({
+          object: 'block', type: 'callout',
+          callout: {
+            rich_text: [{ type: 'text', text: { content: `${f.name}${sizeKb}` } }],
+            icon: { type: 'emoji', emoji: icon },
+            color: 'gray_background'
+          }
+        });
       }
     }
   }
