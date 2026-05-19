@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DailyReport — Agent Sportif</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
+    .dark ::-webkit-scrollbar-thumb { background: #334155; }
+    * { transition: background-color 0.15s, border-color 0.15s, color 0.15s; }
+    .toast { animation: slideIn 0.25s ease, fadeOut 0.3s ease 2.7s forwards; }
+    @keyframes slideIn { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes fadeOut { to { opacity: 0; transform: translateY(8px); } }
+    .tab-active { background: white; color: #111827; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .dark .tab-active { background: #374151; color: white; }
+    input, select, textarea { color-scheme: light; }
+    .dark input, .dark select, .dark textarea { color-scheme: dark; }
+  </style>
+</head>
+<body class="min-h-full bg-slate-50 dark:bg-gray-950 font-sans text-gray-900 dark:text-gray-100">
+
+<!-- Toast -->
+<div id="toastContainer" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+<!-- Header -->
+<header class="sticky top-0 z-40 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
+  <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+    <div class="flex items-center gap-2.5">
+      <div class="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center shrink-0">
+        <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+      </div>
+      <span class="font-semibold text-gray-900 dark:text-white text-sm">DailyReport</span>
+      <span class="text-xs text-gray-400 dark:text-gray-500 hidden sm:block">· Agent Sportif</span>
+    </div>
+    <div class="flex items-center gap-1">
+      <span id="currentDate" class="text-xs text-gray-400 dark:text-gray-500 hidden sm:block mr-2 capitalize"></span>
+      <button id="settingsToggle" title="Paramètres" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+      </button>
+      <button id="darkToggle" title="Mode sombre" class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+        <svg id="sunIcon" class="w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+        </svg>
+        <svg id="moonIcon" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- Settings Panel -->
+<div id="settingsPanel" class="hidden border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900">
+  <div class="max-w-5xl mx-auto px-4 py-5">
+    <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4">Configuration</p>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Webhook Make.com</label>
+        <input id="webhookUrl" type="url" placeholder="https://hook.eu1.make.com/..."
+          class="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400">
+        <p class="text-xs text-gray-400 mt-1">POST → Make → Notion</p>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Votre prénom</label>
+        <input id="senderName" type="text" placeholder="Paulin"
+          class="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400">
+        <p class="text-xs text-gray-400 mt-1">Signature du mail</p>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Email client (défaut)</label>
+        <input id="defaultEmail" type="email" placeholder="client@email.com"
+          class="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400">
+        <p class="text-xs text-gray-400 mt-1">Pré-rempli dans mailto:</p>
+      </div>
+    </div>
+    <div class="flex justify-end mt-4">
+      <button onclick="saveSettings()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg">
+        Sauvegarder
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Main -->
+<main class="max-w-5xl mx-auto px-4 py-6 pb-16">
+
+  <!-- Tabs -->
+  <div class="flex gap-0.5 mb-6 bg-gray-100 dark:bg-gray-800/80 p-1 rounded-xl w-fit">
+    <button onclick="switchTab('today')" id="tab-today" class="tab-btn tab-active px-4 py-1.5 text-sm font-medium rounded-lg">
+      Aujourd'hui
+    </button>
+    <button onclick="switchTab('history')" id="tab-history" class="tab-btn px-4 py-1.5 text-sm font-medium rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+      Historique
+    </button>
+    <button onclick="switchTab('stats')" id="tab-stats" class="tab-btn px-4 py-1.5 text-sm font-medium rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200">
+      Stats
+    </button>
+  </div>
+
+  <!-- ===== TODAY ===== -->
+  <div id="view-today">
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-5">
+
+      <!-- Left: Form + Tasks -->
+      <div class="lg:col-span-3 space-y-4">
+
+        <!-- Form -->
+        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
+          <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4">Nouvelle tâche</p>
+          <div class="grid grid-cols-2 gap-3">
+
+            <div class="col-span-2 sm:col-span-1">
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Client *</label>
+              <input id="f-client" type="text" placeholder="Nom du client"
+                class="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400">
+            </div>
+
+            <div class="col-span-2 sm:col-span-1">
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Date</label>
+              <input id="f-date" type="date"
+                class="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            </div>
+
+            <div class="col-span-2">
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Tâche effectuée *</label>
+              <input id="f-task" type="text" placeholder="Ex : Analyse de profils, prise de contact clubs..."
+                class="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Durée *</label>
+              <input id="f-duration" type="text" placeholder="1h30 / 45min"
+                class="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Difficulté</label>
+              <select id="f-difficulty"
+                class="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="Facile">Facile</option>
+                <option value="Moyen" selected>Moyen</option>
+                <option value="Complexe">Complexe</option>
+                <option value="Urgent">⚡ Urgent</option>
+              </select>
+            </div>
+
+            <div class="col-span-2">
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Résultat</label>
+              <input id="f-result" type="text" placeholder="Ex : 3 clubs contactés, dossier envoyé..."
+                class="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400">
+            </div>
+
+            <div class="col-span-2">
+              <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Notes</label>
+              <textarea id="f-notes" rows="2" placeholder="Informations complémentaires..."
+                class="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none placeholder:text-gray-400"></textarea>
+            </div>
+
+            <!-- Preuves de travail -->
+            <div class="col-span-2 pt-1">
+              <div class="flex items-center gap-2 mb-3">
+                <div class="flex-1 h-px bg-gray-100 dark:bg-gray-800"></div>
+                <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest shrink-0">Preuves de travail</span>
+                <div class="flex-1 h-px bg-gray-100 dark:bg-gray-800"></div>
+              </div>
+
+              <!-- Two option buttons -->
+              <div class="grid grid-cols-2 gap-2 mb-3">
+                <button type="button" onclick="addLinkInput()"
+                  class="py-2 border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-xl text-xs text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center justify-center gap-2 transition-colors font-medium">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                  </svg>
+                  Lien web
+                </button>
+                <button type="button" onclick="document.getElementById('f-files').click()"
+                  class="py-2 border border-gray-200 dark:border-gray-700 hover:border-violet-400 dark:hover:border-violet-500 hover:bg-violet-50 dark:hover:bg-violet-950/40 rounded-xl text-xs text-gray-500 dark:text-gray-400 hover:text-violet-600 dark:hover:text-violet-400 flex items-center justify-center gap-2 transition-colors font-medium">
+                  <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/>
+                  </svg>
+                  Fichier
+                </button>
+              </div>
+
+              <!-- Link inputs (appear below buttons when added) -->
+              <div id="linkInputs" class="space-y-2 mb-2"></div>
+
+              <!-- File input (hidden) -->
+              <input type="file" id="f-files" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip" class="hidden" onchange="handleFiles(this)">
+              <div id="filePreviewList" class="flex flex-wrap gap-2"></div>
+            </div>
+          </div>
+
+          <button onclick="addTask()"
+            class="mt-4 w-full py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[.99] text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-sm shadow-blue-200 dark:shadow-none">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+            </svg>
+            Ajouter la tâche
+          </button>
+        </div>
+
+        <!-- Task list -->
+        <div id="tasksList" class="space-y-2"></div>
+
+        <!-- Empty state -->
+        <div id="emptyState" class="bg-white dark:bg-gray-900 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 p-10 text-center">
+          <div class="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded-xl flex items-center justify-center mx-auto mb-3">
+            <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+          </div>
+          <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Aucune tâche pour aujourd'hui</p>
+          <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Remplissez le formulaire ci-dessus</p>
+        </div>
+      </div>
+
+      <!-- Right: Summary + Actions -->
+      <div class="lg:col-span-2 space-y-4">
+
+        <!-- Stats -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
+            <p class="text-xs text-gray-400 dark:text-gray-500 mb-1">Tâches</p>
+            <p id="statTasks" class="text-2xl font-bold text-gray-900 dark:text-white">0</p>
+          </div>
+          <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
+            <p class="text-xs text-gray-400 dark:text-gray-500 mb-1">Temps total</p>
+            <p id="statTime" class="text-2xl font-bold text-blue-600 dark:text-blue-400">0h</p>
+          </div>
+        </div>
+
+        <!-- Summary box -->
+        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Résumé</p>
+            <button onclick="copyResume()" class="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-medium">
+              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+              </svg>
+              Copier
+            </button>
+          </div>
+          <div id="summaryText" class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed font-mono whitespace-pre-wrap min-h-[80px] text-xs">
+            <span class="text-gray-300 dark:text-gray-600 font-sans text-sm not-italic">Ajoutez des tâches pour générer le résumé…</span>
+          </div>
+        </div>
+
+        <!-- Notion link (auto after send) -->
+        <div id="notionLinkPanel" class="hidden bg-blue-50 dark:bg-blue-950/60 rounded-2xl border border-blue-200 dark:border-blue-900 p-4">
+          <p class="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-wide">Lien Notion reçu</p>
+          <a id="notionLinkAuto" href="#" target="_blank" class="text-xs text-blue-700 dark:text-blue-300 break-all hover:underline leading-relaxed"></a>
+        </div>
+
+        <!-- Manual Notion URL -->
+        <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4">
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Lien Notion (manuel)</label>
+          <input id="notionUrl" type="url" placeholder="https://notion.so/..."
+            class="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400">
+          <p class="text-xs text-gray-400 mt-1.5">Collez le lien Notion partagé pour l'inclure dans le mail</p>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="space-y-2">
+          <button onclick="sendToNotion()" id="btnNotion"
+            class="w-full py-2.5 bg-gray-900 dark:bg-white hover:bg-gray-700 dark:hover:bg-gray-100 text-white dark:text-gray-900 text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-sm">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+            Envoyer vers Notion
+          </button>
+
+          <button onclick="generateEmail()"
+            class="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-2 shadow-sm shadow-blue-200 dark:shadow-none">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+            Générer le mail
+          </button>
+
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="copyResume()"
+              class="py-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl flex items-center justify-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+              </svg>
+              Copier résumé
+            </button>
+            <button onclick="openNotion()"
+              class="py-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl flex items-center justify-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+              </svg>
+              Ouvrir Notion
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== HISTORY ===== -->
+  <div id="view-history" class="hidden">
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+      <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+        <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Rapports sauvegardés</p>
+        <button onclick="clearHistory()" class="text-xs text-red-400 hover:text-red-600 font-medium">Effacer tout</button>
+      </div>
+      <div id="historyList" class="divide-y divide-gray-100 dark:divide-gray-800">
+        <div class="px-5 py-10 text-center text-sm text-gray-400">Aucun rapport sauvegardé</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== STATS ===== -->
+  <div id="view-stats" class="hidden">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
+        <p class="text-xs text-gray-400 dark:text-gray-500 mb-1">Cette semaine</p>
+        <p id="statsWeekTime" class="text-3xl font-bold text-gray-900 dark:text-white">0h</p>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
+        <p class="text-xs text-gray-400 dark:text-gray-500 mb-1">Jours actifs</p>
+        <p id="statsActiveDays" class="text-3xl font-bold text-blue-600 dark:text-blue-400">0</p>
+      </div>
+      <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
+        <p class="text-xs text-gray-400 dark:text-gray-500 mb-1">Tâches totales</p>
+        <p id="statsTotalTasks" class="text-3xl font-bold text-gray-900 dark:text-white">0</p>
+      </div>
+    </div>
+    <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5">
+      <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4">Clients</p>
+      <div id="statsClients" class="space-y-1">
+        <p class="text-sm text-gray-400">Aucune donnée</p>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ===== STATE =====
+let tasks = [];
+let notionPageUrl = '';
+let settings = {};
+let formLinks = [];   // [{id, url, label}]
+let formFiles = [];   // [{id, name, type, dataUrl, size}]
+
+// ===== BOOT =====
+document.addEventListener('DOMContentLoaded', () => {
+  loadSettings();
+  setDate();
+  loadTodayTasks();
+  loadHistory();
+
+  const saved = localStorage.getItem('darkMode');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (saved === 'true' || (!saved && prefersDark)) {
+    document.documentElement.classList.add('dark');
+    document.getElementById('sunIcon').classList.remove('hidden');
+    document.getElementById('moonIcon').classList.add('hidden');
+  }
+
+  document.getElementById('settingsToggle').addEventListener('click', () => {
+    document.getElementById('settingsPanel').classList.toggle('hidden');
+  });
+
+  document.getElementById('darkToggle').addEventListener('click', () => {
+    const isDark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('darkMode', isDark);
+    document.getElementById('sunIcon').classList.toggle('hidden', !isDark);
+    document.getElementById('moonIcon').classList.toggle('hidden', isDark);
+  });
+
+  // Enter = add task
+  ['f-task', 'f-duration', 'f-result'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
+  });
+});
+
+function setDate() {
+  const now = new Date();
+  document.getElementById('currentDate').textContent =
+    now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  document.getElementById('f-date').value = now.toISOString().split('T')[0];
+}
+
+// ===== SETTINGS =====
+function loadSettings() {
+  settings = JSON.parse(localStorage.getItem('drSettings') || '{}');
+  if (settings.webhookUrl) document.getElementById('webhookUrl').value = settings.webhookUrl;
+  if (settings.senderName) document.getElementById('senderName').value = settings.senderName;
+  if (settings.defaultEmail) document.getElementById('defaultEmail').value = settings.defaultEmail;
+}
+
+function saveSettings() {
+  settings = {
+    webhookUrl: document.getElementById('webhookUrl').value.trim(),
+    senderName: document.getElementById('senderName').value.trim(),
+    defaultEmail: document.getElementById('defaultEmail').value.trim()
+  };
+  localStorage.setItem('drSettings', JSON.stringify(settings));
+  document.getElementById('settingsPanel').classList.add('hidden');
+  toast('Paramètres sauvegardés ✓', 'success');
+}
+
+// ===== TASKS =====
+function addTask() {
+  const client = v('f-client'), task = v('f-task'), duration = v('f-duration');
+  if (!client || !task || !duration) {
+    toast('Client, tâche et durée sont requis', 'error');
+    if (!client) document.getElementById('f-client').focus();
+    else if (!task) document.getElementById('f-task').focus();
+    else document.getElementById('f-duration').focus();
+    return;
+  }
+
+  tasks.push({
+    id: Date.now(),
+    client,
+    date: document.getElementById('f-date').value,
+    task,
+    duration,
+    difficulty: document.getElementById('f-difficulty').value,
+    result: v('f-result'),
+    notes: v('f-notes'),
+    links: formLinks.map(l => ({ url: l.url, label: l.label })).filter(l => l.url),
+    files: formFiles.map(f => ({ name: f.name, type: f.type, dataUrl: f.dataUrl, size: f.size })),
+    createdAt: new Date().toISOString()
+  });
+
+  saveTodayTasks();
+  renderTasks();
+  updateSummary();
+
+  // Clear task fields, keep client + date
+  ['f-task', 'f-result', 'f-notes'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-duration').value = '';
+  clearFormAttachments();
+  document.getElementById('f-task').focus();
+  toast('Tâche ajoutée', 'success');
+}
+
+function removeTask(id) {
+  tasks = tasks.filter(t => t.id !== id);
+  saveTodayTasks();
+  renderTasks();
+  updateSummary();
+}
+
+const DIFF_STYLE = {
+  'Facile':   'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
+  'Moyen':    'bg-amber-100  dark:bg-amber-900/30  text-amber-700  dark:text-amber-400',
+  'Complexe': 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
+  '⚡ Urgent':'bg-red-100    dark:bg-red-900/30    text-red-700    dark:text-red-400'
+};
+
+function renderTasks() {
+  const list = document.getElementById('tasksList');
+  const empty = document.getElementById('emptyState');
+
+  if (!tasks.length) { list.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+
+  list.innerHTML = tasks.map(t => `
+    <div class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex gap-3 items-start group">
+      <div class="flex-1 min-w-0">
+        <div class="flex flex-wrap items-center gap-2 mb-1">
+          <span class="text-sm font-medium text-gray-900 dark:text-white">${escHtml(t.task)}</span>
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium ${DIFF_STYLE[t.difficulty] || DIFF_STYLE['Moyen']}">${escHtml(t.difficulty)}</span>
+        </div>
+        <div class="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+          <span>👤 ${escHtml(t.client)}</span>
+          <span>⏱ ${escHtml(t.duration)}</span>
+          ${t.result ? `<span>✓ ${escHtml(t.result)}</span>` : ''}
+        </div>
+        ${t.notes ? `<p class="text-xs text-gray-400 dark:text-gray-500 mt-1.5 italic">${escHtml(t.notes)}</p>` : ''}
+        ${(t.links?.length || t.files?.length) ? `
+        <div class="mt-2 flex flex-wrap gap-1.5">
+          ${(t.links || []).map(l => `
+            <a href="${escHtml(l.url)}" target="_blank" rel="noopener"
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 text-xs hover:bg-blue-100 dark:hover:bg-blue-900 border border-blue-200 dark:border-blue-800 max-w-[200px] truncate">
+              <svg class="w-2.5 h-2.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+              <span class="truncate">${escHtml(l.label || l.url)}</span>
+            </a>`).join('')}
+          ${(t.files || []).map(f => f.type?.startsWith('image/') ? `
+            <button onclick="previewFile('${escHtml(f.dataUrl)}','${escHtml(f.name)}')"
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 max-w-[180px]">
+              <img src="${escHtml(f.dataUrl)}" class="w-3.5 h-3.5 rounded object-cover shrink-0">
+              <span class="truncate">${escHtml(f.name)}</span>
+            </button>` : `
+            <button onclick="previewFile('${escHtml(f.dataUrl)}','${escHtml(f.name)}')"
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 max-w-[180px]">
+              <svg class="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
+              <span class="truncate">${escHtml(f.name)}</span>
+            </button>`).join('')}
+        </div>` : ''}
+      </div>
+      <button onclick="removeTask(${t.id})" title="Supprimer" class="opacity-0 group-hover:opacity-100 p-1 rounded-lg text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950 shrink-0">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+function updateSummary() {
+  document.getElementById('statTasks').textContent = tasks.length;
+  const totalMins = tasks.reduce((s, t) => s + parseDuration(t.duration), 0);
+  document.getElementById('statTime').textContent = fmtMins(totalMins);
+
+  if (!tasks.length) {
+    document.getElementById('summaryText').innerHTML =
+      '<span class="text-gray-300 dark:text-gray-600 font-sans text-sm not-italic">Ajoutez des tâches pour générer le résumé…</span>';
+    return;
+  }
+
+  const date = document.getElementById('f-date').value || new Date().toISOString().split('T')[0];
+  const dateStr = capitalize(new Date(date + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }));
+  const lines = tasks.map(t => {
+    let line = `- ${t.task}${t.result ? ' → ' + t.result : ''}`;
+    const urls = (t.links || []).filter(l => l.url).map(l => l.label ? `${l.label} (${l.url})` : l.url);
+    if (urls.length) line += `\n  📎 ${urls.join(', ')}`;
+    return line;
+  }).join('\n');
+  document.getElementById('summaryText').textContent = `${dateStr} :\n${lines}\n\nTemps total : ${fmtMins(totalMins)}`;
+}
+
+// ===== NOTION =====
+async function sendToNotion() {
+  if (!tasks.length) { toast('Aucune tâche à envoyer', 'error'); return; }
+  if (!settings.webhookUrl) {
+    toast('Configurez le webhook Make.com d\'abord', 'error');
+    document.getElementById('settingsPanel').classList.remove('hidden');
+    return;
+  }
+
+  const btn = document.getElementById('btnNotion');
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg> Envoi…';
+
+  const totalMins = tasks.reduce((s, t) => s + parseDuration(t.duration), 0);
+  const date = document.getElementById('f-date').value;
+  const payload = {
+    date,
+    tasks,
+    totalTime: fmtMins(totalMins),
+    summary: document.getElementById('summaryText').textContent,
+    senderName: settings.senderName || 'Paulin',
+    client: tasks[0]?.client || ''
+  };
+
+  try {
+    const res = await fetch(settings.webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    let data = {};
+    try { data = await res.json(); } catch {}
+
+    const url = data.notionUrl || data.url || data.notion_url || data.pageUrl || '';
+    if (url) {
+      notionPageUrl = url;
+      document.getElementById('notionUrl').value = url;
+      document.getElementById('notionLinkAuto').href = url;
+      document.getElementById('notionLinkAuto').textContent = url;
+      document.getElementById('notionLinkPanel').classList.remove('hidden');
+    }
+
+    saveToHistory(payload, url);
+    toast('Envoyé vers Notion ✓', 'success');
+    btn.innerHTML = '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Envoyé !';
+  } catch (err) {
+    toast('Erreur : ' + err.message, 'error');
+    btn.innerHTML = 'Réessayer';
+    btn.disabled = false;
+  }
+}
+
+function openNotion() {
+  const url = document.getElementById('notionUrl').value.trim() || notionPageUrl;
+  if (!url) { toast('Aucun lien Notion disponible', 'error'); return; }
+  window.open(url, '_blank');
+}
+
+// ===== EMAIL =====
+function generateEmail() {
+  if (!tasks.length) { toast('Aucune tâche à envoyer', 'error'); return; }
+
+  const date = document.getElementById('f-date').value || new Date().toISOString().split('T')[0];
+  const dateStr = capitalize(new Date(date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }));
+  const totalMins = tasks.reduce((s, t) => s + parseDuration(t.duration), 0);
+  const notionUrl = document.getElementById('notionUrl').value.trim() || notionPageUrl;
+  const name = settings.senderName || 'Paulin';
+  const client = tasks[0]?.client || '';
+
+  const subject = `Compte rendu – ${dateStr}${client ? ' – ' + client : ''}`;
+  const lines = tasks.map(t => {
+    let line = `- ${t.task}${t.result ? ' → ' + t.result : ''}`;
+    const urls = (t.links || []).filter(l => l.url).map(l => l.label ? `${l.label} : ${l.url}` : l.url);
+    if (urls.length) line += `\n  ${urls.join('\n  ')}`;
+    const fnames = (t.files || []).map(f => f.name);
+    if (fnames.length) line += `\n  Fichiers joints : ${fnames.join(', ')}`;
+    return line;
+  }).join('\n');
+
+  let body = `Bonjour,\n\nVoici le récapitulatif des actions effectuées aujourd'hui :\n\n${lines}\n\nTemps total : ${fmtMins(totalMins)}`;
+  if (notionUrl) body += `\n\nConsultation du rapport complet :\n${notionUrl}`;
+  body += `\n\nBien à vous,\n${name}`;
+
+  window.location.href = `mailto:${settings.defaultEmail || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+// ===== COPY =====
+function copyResume() {
+  const el = document.getElementById('summaryText');
+  const text = el.textContent;
+  if (!text || text.includes('Ajoutez des tâches')) { toast('Aucun résumé à copier', 'error'); return; }
+  navigator.clipboard.writeText(text)
+    .then(() => toast('Résumé copié ✓', 'success'))
+    .catch(() => { /* fallback */ const r = document.createRange(); r.selectNode(el); window.getSelection().removeAllRanges(); window.getSelection().addRange(r); document.execCommand('copy'); toast('Résumé copié ✓', 'success'); });
+}
+
+// ===== HISTORY =====
+function saveToHistory(payload, notionUrl) {
+  const history = JSON.parse(localStorage.getItem('drHistory') || '[]');
+  history.unshift({ ...payload, notionUrl, savedAt: new Date().toISOString() });
+  localStorage.setItem('drHistory', JSON.stringify(history.slice(0, 100)));
+  loadHistory();
+}
+
+function loadHistory() {
+  const history = JSON.parse(localStorage.getItem('drHistory') || '[]');
+  const list = document.getElementById('historyList');
+  if (!history.length) {
+    list.innerHTML = '<div class="px-5 py-10 text-center text-sm text-gray-400">Aucun rapport sauvegardé</div>';
+    return;
+  }
+  list.innerHTML = history.map(h => {
+    const dateStr = capitalize(new Date((h.date || h.savedAt.split('T')[0]) + 'T12:00:00').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }));
+    return `
+      <div class="px-5 py-3.5 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/40">
+        <div>
+          <p class="text-sm font-medium text-gray-900 dark:text-white">${escHtml(dateStr)}</p>
+          <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">${escHtml(h.client || '—')} · ${h.tasks?.length || 0} tâche(s) · ${h.totalTime}</p>
+        </div>
+        <div class="flex items-center gap-3">
+          ${h.notionUrl ? `<a href="${escHtml(h.notionUrl)}" target="_blank" class="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium">Notion ↗</a>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function clearHistory() {
+  if (!confirm('Effacer tout l\'historique ? Cette action est irréversible.')) return;
+  localStorage.removeItem('drHistory');
+  loadHistory();
+  toast('Historique effacé', 'success');
+}
+
+// ===== STATS =====
+function renderStats() {
+  const history = JSON.parse(localStorage.getItem('drHistory') || '[]');
+  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+  const week = history.filter(h => new Date(h.savedAt) > weekAgo);
+
+  const weekMins = week.reduce((sum, h) => sum + (h.tasks || []).reduce((s, t) => s + parseDuration(t.duration), 0), 0);
+  document.getElementById('statsWeekTime').textContent = fmtMins(weekMins);
+  document.getElementById('statsActiveDays').textContent = new Set(week.map(h => h.date)).size;
+  document.getElementById('statsTotalTasks').textContent = history.reduce((s, h) => s + (h.tasks?.length || 0), 0);
+
+  const clientMap = {};
+  history.forEach(h => {
+    const c = h.client || 'Non défini';
+    if (!clientMap[c]) clientMap[c] = { tasks: 0, mins: 0 };
+    clientMap[c].tasks += h.tasks?.length || 0;
+    clientMap[c].mins += (h.tasks || []).reduce((s, t) => s + parseDuration(t.duration), 0);
+  });
+  const entries = Object.entries(clientMap).sort((a, b) => b[1].mins - a[1].mins);
+  document.getElementById('statsClients').innerHTML = !entries.length
+    ? '<p class="text-sm text-gray-400">Aucune donnée</p>'
+    : entries.map(([name, d]) => `
+      <div class="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+        <span class="text-sm text-gray-700 dark:text-gray-300">${escHtml(name)}</span>
+        <div class="flex items-center gap-4">
+          <span class="text-xs text-gray-400">${d.tasks} tâche(s)</span>
+          <span class="text-sm font-semibold text-blue-600 dark:text-blue-400">${fmtMins(d.mins)}</span>
+        </div>
+      </div>`).join('');
+}
+
+// ===== PERSISTENCE =====
+function saveTodayTasks() {
+  localStorage.setItem('drTasks_' + todayKey(), JSON.stringify(tasks));
+}
+function loadTodayTasks() {
+  tasks = JSON.parse(localStorage.getItem('drTasks_' + todayKey()) || '[]');
+  renderTasks();
+  updateSummary();
+}
+function todayKey() { return new Date().toISOString().split('T')[0]; }
+
+// ===== TABS =====
+function switchTab(tab) {
+  ['today', 'history', 'stats'].forEach(t => {
+    document.getElementById('view-' + t).classList.toggle('hidden', t !== tab);
+    const btn = document.getElementById('tab-' + t);
+    btn.classList.toggle('tab-active', t === tab);
+    btn.classList.toggle('text-gray-500', t !== tab);
+    btn.classList.toggle('dark:text-gray-400', t !== tab);
+  });
+  if (tab === 'stats') renderStats();
+  if (tab === 'history') loadHistory();
+}
+
+// ===== ATTACHMENTS =====
+function addLinkInput() {
+  const id = Date.now();
+  formLinks.push({ id, url: '', label: '' });
+  renderLinkInputs();
+}
+
+function removeLinkInput(id) {
+  formLinks = formLinks.filter(l => l.id !== id);
+  renderLinkInputs();
+}
+
+function renderLinkInputs() {
+  const container = document.getElementById('linkInputs');
+  container.innerHTML = formLinks.map(l => `
+    <div class="flex gap-2 items-center">
+      <input type="url" placeholder="https://…" value="${escHtml(l.url)}"
+        oninput="updateLink(${l.id},'url',this.value)"
+        class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400">
+      <input type="text" placeholder="Label (optionnel)" value="${escHtml(l.label)}"
+        oninput="updateLink(${l.id},'label',this.value)"
+        class="w-28 px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-400">
+      <button onclick="removeLinkInput(${l.id})" class="text-gray-300 dark:text-gray-600 hover:text-red-500 p-1 rounded shrink-0">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>`).join('');
+}
+
+function updateLink(id, field, value) {
+  const link = formLinks.find(l => l.id === id);
+  if (link) link[field] = value;
+}
+
+function handleFiles(input) {
+  const MAX = 3 * 1024 * 1024; // 3MB per file
+  Array.from(input.files).forEach(file => {
+    if (file.size > MAX) { toast(`${file.name} trop lourd (max 3MB)`, 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = e => {
+      formFiles.push({ id: Date.now() + Math.random(), name: file.name, type: file.type, dataUrl: e.target.result, size: file.size });
+      renderFilePreview();
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value = '';
+}
+
+function removeFormFile(id) {
+  formFiles = formFiles.filter(f => f.id !== id);
+  renderFilePreview();
+}
+
+function renderFilePreview() {
+  const container = document.getElementById('filePreviewList');
+  container.innerHTML = formFiles.map(f => `
+    <div class="relative group inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-300 max-w-[180px]">
+      ${f.type?.startsWith('image/')
+        ? `<img src="${escHtml(f.dataUrl)}" class="w-4 h-4 rounded object-cover shrink-0">`
+        : `<svg class="w-3.5 h-3.5 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>`}
+      <span class="truncate">${escHtml(f.name)}</span>
+      <button onclick="removeFormFile(${f.id})" class="ml-0.5 text-gray-400 hover:text-red-500 shrink-0">
+        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>`).join('');
+}
+
+function clearFormAttachments() {
+  formLinks = [];
+  formFiles = [];
+  renderLinkInputs();
+  renderFilePreview();
+}
+
+function previewFile(dataUrl, name) {
+  if (!dataUrl) return;
+  const win = window.open('', '_blank');
+  if (dataUrl.startsWith('data:image/')) {
+    win.document.write(`<html><head><title>${name}</title><style>body{margin:0;background:#111;display:flex;align-items:center;justify-content:center;min-height:100vh}img{max-width:100%;max-height:100vh;object-fit:contain}</style></head><body><img src="${dataUrl}" alt="${name}"></body></html>`);
+  } else {
+    win.document.write(`<html><head><title>${name}</title></head><body><iframe src="${dataUrl}" style="width:100vw;height:100vh;border:none"></iframe></body></html>`);
+  }
+}
+
+// ===== UTILS =====
+function v(id) { return document.getElementById(id).value.trim(); }
+function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+function escHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function parseDuration(str) {
+  if (!str) return 0;
+  const s = str.toLowerCase().trim();
+  let mins = 0;
+  const h = s.match(/(\d+(?:[.,]\d+)?)\s*h/);
+  const m = s.match(/(\d+)\s*min/);
+  const bare = s.match(/^(\d+)$/);
+  if (h) mins += Math.round(parseFloat(h[1].replace(',', '.')) * 60);
+  if (m) mins += parseInt(m[1]);
+  if (!h && !m && bare) mins = parseInt(bare[1]); // bare number = minutes
+  // "1h30" without "min" keyword: digits after h
+  if (h && !m) {
+    const after = s.match(/h(\d+)$/);
+    if (after) mins += parseInt(after[1]);
+  }
+  return mins;
+}
+
+function fmtMins(m) {
+  if (!m) return '0h';
+  const h = Math.floor(m / 60), min = m % 60;
+  if (!h) return `${min}min`;
+  if (!min) return `${h}h`;
+  return `${h}h${String(min).padStart(2, '0')}`;
+}
+
+function toast(msg, type = 'info') {
+  const c = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  const styles = {
+    success: 'bg-gray-900 dark:bg-white text-white dark:text-gray-900',
+    error:   'bg-red-500 text-white',
+    info:    'bg-blue-600 text-white'
+  };
+  el.className = `toast px-4 py-2.5 rounded-xl text-sm font-medium shadow-xl pointer-events-auto ${styles[type]}`;
+  el.textContent = msg;
+  c.appendChild(el);
+  setTimeout(() => el.remove(), 3100);
+}
+</script>
+</body>
+</html>
