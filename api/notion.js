@@ -51,6 +51,38 @@ module.exports = async function handler(req, res) {
   const queryData = await queryRes.json();
   const existingPage = queryData.results?.[0];
 
+  // ── Uploader les fichiers vers Notion ────────────────────────────────────
+  async function uploadFileToNotion(file) {
+    try {
+      // 1. Créer l'upload
+      const createRes = await fetch('https://api.notion.com/v1/file_uploads', {
+        method: 'POST',
+        headers: notionHeaders,
+        body: JSON.stringify({ filename: file.name, content_type: file.type || 'application/octet-stream' }),
+      });
+      const upload = await createRes.json();
+      if (!createRes.ok) return null;
+
+      // 2. Envoyer le contenu binaire (base64 → Buffer)
+      const base64Data = file.dataUrl.split(',')[1];
+      const binary = Buffer.from(base64Data, 'base64');
+
+      const { FormData, Blob } = await import('node:buffer').catch(() => globalThis);
+      const form = new FormData();
+      form.append('file', new Blob([binary], { type: file.type }), file.name);
+
+      const sendRes = await fetch(`https://api.notion.com/v1/file_uploads/${upload.id}/send`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${process.env.NOTION_TOKEN}`, 'Notion-Version': '2022-06-28' },
+        body: form,
+      });
+      const sent = await sendRes.json();
+      if (!sendRes.ok) return null;
+
+      return { id: upload.id, name: file.name, type: file.type };
+    } catch { return null; }
+  }
+
   // ── Blocs nouveaux à ajouter ─────────────────────────────────────────────
   const newBlocks = [];
 
@@ -60,7 +92,21 @@ module.exports = async function handler(req, res) {
     newBlocks.push(bulletItem(`${t.task}${t.result ? ' → ' + t.result : ''}`, t.difficulty?.includes('Urgent')));
     if (t.notes) newBlocks.push(quote(t.notes));
     for (const l of t.links || []) { if (l.url) newBlocks.push(linkBlock(l.label || l.url, l.url)); }
-    if (t.files?.length) newBlocks.push(paragraph(`📎 ${t.files.map(f => f.name).join(', ')}`));
+
+    // Upload fichiers → blocs Notion
+    for (const f of t.files || []) {
+      if (!f.dataUrl) { newBlocks.push(paragraph(`📎 ${f.name}`)); continue; }
+      const uploaded = await uploadFileToNotion(f);
+      if (uploaded) {
+        if (f.type?.startsWith('image/')) {
+          newBlocks.push({ object: 'block', type: 'image', image: { type: 'file_upload', file_upload: { id: uploaded.id } } });
+        } else {
+          newBlocks.push({ object: 'block', type: 'file', file: { type: 'file_upload', file_upload: { id: uploaded.id }, caption: [{ type: 'text', text: { content: f.name } }] } });
+        }
+      } else {
+        newBlocks.push(paragraph(`📎 ${f.name} (upload échoué)`));
+      }
+    }
   }
 
   newBlocks.push({ object: 'block', type: 'divider', divider: {} });
