@@ -63,13 +63,13 @@ module.exports = async function handler(req, res) {
       const upload = await createRes.json();
       if (!createRes.ok) return null;
 
-      // 2. Envoyer le contenu binaire (base64 → Buffer)
+      // 2. Envoyer le contenu binaire (base64 → Buffer → FormData)
       const base64Data = file.dataUrl.split(',')[1];
       const binary = Buffer.from(base64Data, 'base64');
 
-      const { FormData, Blob } = await import('node:buffer').catch(() => globalThis);
+      // Node.js 20 : FormData et Blob sont globals
       const form = new FormData();
-      form.append('file', new Blob([binary], { type: file.type }), file.name);
+      form.append('file', new Blob([binary], { type: file.type || 'application/octet-stream' }), file.name);
 
       const sendRes = await fetch(`https://api.notion.com/v1/file_uploads/${upload.id}/send`, {
         method: 'POST',
@@ -77,10 +77,11 @@ module.exports = async function handler(req, res) {
         body: form,
       });
       const sent = await sendRes.json();
-      if (!sendRes.ok) return null;
+      const sent = await sendRes.json();
+      if (!sendRes.ok) { console.error('file send error:', sent); return null; }
 
       return { id: upload.id, name: file.name, type: file.type };
-    } catch { return null; }
+    } catch (e) { console.error('upload exception:', e.message); return null; }
   }
 
   // ── Blocs nouveaux à ajouter ─────────────────────────────────────────────
