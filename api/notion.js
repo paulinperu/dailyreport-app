@@ -52,6 +52,32 @@ module.exports = async function handler(req, res) {
   const queryData = await queryRes.json();
   const existingPage = queryData.results?.[0];
 
+  // ── Upload fichier vers Notion ────────────────────────────────────────────
+  async function uploadFile(file) {
+    try {
+      const createRes = await fetch('https://api.notion.com/v1/file_uploads', {
+        method: 'POST',
+        headers: notionHeaders,
+        body: JSON.stringify({ filename: file.name, content_type: file.type || 'application/octet-stream' }),
+      });
+      const upload = await createRes.json();
+      if (!createRes.ok) { console.error('file_upload create:', upload.message); return null; }
+
+      const binary = Buffer.from(file.dataUrl.split(',')[1], 'base64');
+      const form = new FormData();
+      form.append('file', new Blob([binary], { type: file.type || 'application/octet-stream' }), file.name);
+
+      const sendRes = await fetch(`https://api.notion.com/v1/file_uploads/${upload.id}/send`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${process.env.NOTION_TOKEN}`, 'Notion-Version': '2022-06-28' },
+        body: form,
+      });
+      const sent = await sendRes.json();
+      if (!sendRes.ok) { console.error('file_upload send:', sent.message); return null; }
+      return upload.id;
+    } catch (e) { console.error('uploadFile exception:', e.message); return null; }
+  }
+
   // ── Blocs nouveaux à ajouter ─────────────────────────────────────────────
   const newBlocks = [];
 
@@ -62,19 +88,18 @@ module.exports = async function handler(req, res) {
     if (t.notes) newBlocks.push(quote(t.notes));
     for (const l of t.links || []) { if (l.url) newBlocks.push(linkBlock(l.label || l.url, l.url)); }
 
-    // Fichiers → callout avec icône selon type
-    if (t.files?.length) {
-      for (const f of t.files) {
-        const icon = f.type?.startsWith('image/') ? '🖼️' : f.type?.includes('pdf') ? '📄' : f.type?.includes('sheet') || f.type?.includes('excel') ? '📊' : '📎';
-        const sizeKb = f.size ? ` · ${Math.round(f.size / 1024)}ko` : '';
-        newBlocks.push({
-          object: 'block', type: 'callout',
-          callout: {
-            rich_text: [{ type: 'text', text: { content: `${f.name}${sizeKb}` } }],
-            icon: { type: 'emoji', emoji: icon },
-            color: 'gray_background'
-          }
-        });
+    for (const f of t.files || []) {
+      if (!f.dataUrl) continue;
+      const uploadId = await uploadFile(f);
+      if (uploadId) {
+        if (f.type?.startsWith('image/')) {
+          newBlocks.push({ object: 'block', type: 'image', image: { type: 'file_upload', file_upload: { id: uploadId } } });
+        } else {
+          newBlocks.push({ object: 'block', type: 'file', file: { type: 'file_upload', file_upload: { id: uploadId }, caption: [{ type: 'text', text: { content: f.name } }] } });
+        }
+      } else {
+        const icon = f.type?.startsWith('image/') ? '🖼️' : f.type?.includes('pdf') ? '📄' : '📎';
+        newBlocks.push(callout(`${f.name}${f.size ? ' · ' + Math.round(f.size/1024) + 'ko' : ''}`, icon));
       }
     }
   }
@@ -88,15 +113,21 @@ module.exports = async function handler(req, res) {
 
   let pageId, notionUrl;
 
+  // Notion limite à 100 blocs par requête → batches
+  async function appendBlocks(pid, blocks) {
+    for (let i = 0; i < blocks.length; i += 100) {
+      await fetch(`https://api.notion.com/v1/blocks/${pid}/children`, {
+        method: 'PATCH',
+        headers: notionHeaders,
+        body: JSON.stringify({ children: blocks.slice(i, i + 100) }),
+      });
+    }
+  }
+
   if (existingPage) {
     // ── Page existe → append les blocs + mettre à jour Temps total ──────────
     pageId = existingPage.id;
-
-    await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
-      method: 'PATCH',
-      headers: notionHeaders,
-      body: JSON.stringify({ children: newBlocks }),
-    });
+    await appendBlocks(pageId, newBlocks);
 
     // Mettre à jour Temps total et Client
     await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
@@ -159,7 +190,7 @@ const rt = (content, bold = false, italic = false) => ({
 const heading2   = text => ({ object: 'block', type: 'heading_2',  heading_2:  { rich_text: [rt(text)] } });
 const paragraph  = text => ({ object: 'block', type: 'paragraph',  paragraph:  { rich_text: [rt(text)] } });
 const quote      = text => ({ object: 'block', type: 'quote',      quote:      { rich_text: [rt(text, false, true)] } });
-const callout    = text => ({ object: 'block', type: 'callout',    callout:    { rich_text: [rt(text)], icon: { type: 'emoji', emoji: '📋' }, color: 'gray_background' } });
+const callout    = (text, emoji = '📋') => ({ object: 'block', type: 'callout', callout: { rich_text: [rt(text)], icon: { type: 'emoji', emoji }, color: 'gray_background' } });
 const bulletItem = (text, bold = false) => ({ object: 'block', type: 'bulleted_list_item', bulleted_list_item: { rich_text: [rt(text, bold)] } });
 const linkBlock  = (label, url) => ({
   object: 'block', type: 'paragraph',
