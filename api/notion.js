@@ -15,6 +15,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+  try {
   const { date, tasks = [], totalTime, client = '', senderName = 'Paulin' } = req.body;
 
   const notionHeaders = {
@@ -174,6 +175,10 @@ module.exports = async function handler(req, res) {
     pageId = page.id;
     notionUrl = `https://www.notion.so/${pageId.replace(/-/g, '')}`;
     return res.status(200).json({ notionUrl, pageId, updated: false });
+  }
+  } catch (e) {
+    console.error('HANDLER CRASH:', e.message, e.stack);
+    return res.status(500).json({ error: e.message, stack: e.stack });
   }
 };
 
