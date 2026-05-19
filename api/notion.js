@@ -78,7 +78,6 @@ module.exports = async function handler(req, res) {
         body: form,
       });
       const sent = await sendRes.json();
-      const sent = await sendRes.json();
       if (!sendRes.ok) { console.error('file send error:', sent); return null; }
 
       return { id: upload.id, name: file.name, type: file.type };
