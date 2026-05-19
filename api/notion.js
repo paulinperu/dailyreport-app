@@ -37,25 +37,37 @@ module.exports = async function handler(req, res) {
     `Rapport généré le ${new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} par ${senderName}`
   ));
 
-  // ── Appel Notion API ──────────────────────────────────────────────────────
+  // ── Trouver le nom de la propriété titre dans la database ───────────────────
+
+  const notionHeaders = {
+    'Authorization': `Bearer ${process.env.NOTION_TOKEN}`,
+    'Notion-Version': '2022-06-28',
+    'Content-Type': 'application/json',
+  };
+
+  const dbRes = await fetch(`https://api.notion.com/v1/databases/${process.env.NOTION_DATABASE_ID}`, {
+    headers: notionHeaders,
+  });
+  const db = await dbRes.json();
+
+  if (!dbRes.ok) {
+    return res.status(502).json({ error: db.message || 'Cannot fetch database', details: db });
+  }
+
+  // Trouver la clé de la propriété "title"
+  const titleKey = Object.entries(db.properties).find(([, v]) => v.type === 'title')?.[0] || 'Name';
+
+  // ── Créer la page ─────────────────────────────────────────────────────────
 
   const title = `Compte rendu – ${formatDate(date)}${client ? ' – ' + client : ''}`;
 
   const notionRes = await fetch('https://api.notion.com/v1/pages', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.NOTION_TOKEN}`,
-      'Notion-Version': '2022-06-28',
-      'Content-Type': 'application/json',
-    },
+    headers: notionHeaders,
     body: JSON.stringify({
       parent: { database_id: process.env.NOTION_DATABASE_ID },
       properties: {
-        Name:           { title:     [{ type: 'text', text: { content: title } }] },
-        Date:           { date:      { start: date || new Date().toISOString().split('T')[0] } },
-        Client:         { rich_text: [{ type: 'text', text: { content: client } }] },
-        'Temps total':  { rich_text: [{ type: 'text', text: { content: totalTime || '' } }] },
-        Tâches:         { number: tasks.length },
+        [titleKey]: { title: [{ type: 'text', text: { content: title } }] },
       },
       children: blocks,
     }),
