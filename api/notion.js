@@ -74,9 +74,8 @@ module.exports = async function handler(req, res) {
     body: JSON.stringify({
       parent: { database_id: process.env.NOTION_DATABASE_ID },
       properties: {
-        [titleKey]:       { title:     [{ type: 'text', text: { content: title } }] },
-        "Date d'échéance": { date:     { start: date || new Date().toISOString().split('T')[0] } },
-        "Client":         { rich_text: [{ type: 'text', text: { content: client } }] },
+        [titleKey]:    { title:     [{ type: 'text', text: { content: title } }] },
+        "Client":      { rich_text: [{ type: 'text', text: { content: client } }] },
         "Résumé":         { rich_text: [{ type: 'text', text: { content: resumeText } }] },
         "Temps total":    { rich_text: [{ type: 'text', text: { content: totalTime || '' } }] },
         "Difficulté":     { select:    { name: difficulte } },
