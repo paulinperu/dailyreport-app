@@ -36,6 +36,7 @@ module.exports = async function handler(req, res) {
   if (!dbRes.ok) return res.status(502).json({ error: db.message, details: db });
 
   const titleKey = Object.entries(db.properties).find(([, v]) => v.type === 'title')?.[0] || 'Nom de la tâche';
+  const dbProps = db.properties; // used to check which columns exist
 
   // ── Chercher si page du jour existe déjà ─────────────────────────────────
   const queryRes = await fetch(`https://api.notion.com/v1/databases/${process.env.NOTION_DATABASE_ID}/query`, {
@@ -129,19 +130,19 @@ module.exports = async function handler(req, res) {
     pageId = existingPage.id;
     await appendBlocks(pageId, newBlocks);
 
-    // Mettre à jour Temps total et Client
-    await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
-      method: 'PATCH',
-      headers: notionHeaders,
-      body: JSON.stringify({
-        properties: {
-          "Client":      { rich_text: [{ type: 'text', text: { content: client } }] },
-          "Temps total": { rich_text: [{ type: 'text', text: { content: totalTime || '' } }] },
-          "Difficulté":  { select: { name: difficulte } },
-          "Résumé":      { rich_text: [{ type: 'text', text: { content: resumeText } }] },
-        }
-      }),
-    });
+    // Mettre à jour les propriétés existantes seulement
+    const patchProps = {};
+    if (dbProps['Client'])      patchProps['Client']      = { rich_text: [{ type: 'text', text: { content: client } }] };
+    if (dbProps['Temps total']) patchProps['Temps total'] = { rich_text: [{ type: 'text', text: { content: totalTime || '' } }] };
+    if (dbProps['Difficulté'])  patchProps['Difficulté']  = { select: { name: difficulte } };
+    if (dbProps['Résumé'])      patchProps['Résumé']      = { rich_text: [{ type: 'text', text: { content: resumeText } }] };
+    if (Object.keys(patchProps).length) {
+      await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+        method: 'PATCH',
+        headers: notionHeaders,
+        body: JSON.stringify({ properties: patchProps }),
+      });
+    }
 
     notionUrl = `https://www.notion.so/${pageId.replace(/-/g, '')}`;
     return res.status(200).json({ notionUrl, pageId, updated: true });
@@ -154,12 +155,12 @@ module.exports = async function handler(req, res) {
       body: JSON.stringify({
         parent: { database_id: process.env.NOTION_DATABASE_ID },
         properties: {
-          [titleKey]:    { title:     [{ type: 'text', text: { content: title } }] },
-          "Client":      { rich_text: [{ type: 'text', text: { content: client } }] },
-          "Résumé":      { rich_text: [{ type: 'text', text: { content: resumeText } }] },
-          "Temps total": { rich_text: [{ type: 'text', text: { content: totalTime || '' } }] },
-          "Difficulté":  { select:    { name: difficulte } },
-          "État":        { status:    { name: 'Terminé' } },
+          [titleKey]: { title: [{ type: 'text', text: { content: title } }] },
+          ...(dbProps['Client']      && { 'Client':      { rich_text: [{ type: 'text', text: { content: client } }] } }),
+          ...(dbProps['Résumé']      && { 'Résumé':      { rich_text: [{ type: 'text', text: { content: resumeText } }] } }),
+          ...(dbProps['Temps total'] && { 'Temps total': { rich_text: [{ type: 'text', text: { content: totalTime || '' } }] } }),
+          ...(dbProps['Difficulté']  && { 'Difficulté':  { select: { name: difficulte } } }),
+          ...(dbProps['État']        && { 'État':        { status: { name: 'Terminé' } } }),
         },
         children: newBlocks,
       }),
